@@ -513,6 +513,7 @@ public class CropOverlayView extends View {
 
   /** Fix the given rect to fit into bitmap rect and follow min, max and aspect ratio rules. */
   private void fixCropWindowRectByRules(RectF rect) {
+
     if (rect.width() < mCropWindowHandler.getMinCropWidth()) {
       float adj = (mCropWindowHandler.getMinCropWidth() - rect.width()) / 2;
       rect.left -= adj;
@@ -535,11 +536,12 @@ public class CropOverlayView extends View {
     }
 
     calculateBounds(rect);
-    if (mCalcBounds.width() > 0 && mCalcBounds.height() > 0) {
+    if (Math.abs(mCalcBounds.width()) >= 0 && mCalcBounds.height() > 0) {
       float leftLimit = Math.max(mCalcBounds.left, 0);
       float topLimit = Math.max(mCalcBounds.top, 0);
       float rightLimit = Math.min(mCalcBounds.right, getWidth());
       float bottomLimit = Math.min(mCalcBounds.bottom, getHeight());
+
       if (rect.left < leftLimit) {
         rect.left = leftLimit;
       }
@@ -552,7 +554,13 @@ public class CropOverlayView extends View {
       if (rect.bottom > bottomLimit) {
         rect.bottom = bottomLimit;
       }
+
+      rect.right = Math.max(rect.left, rect.right);
+      rect.left = Math.min(rect.left, rect.right);
+      rect.bottom = Math.max(rect.top, rect.bottom);
+      rect.top = Math.min(rect.top, rect.bottom);
     }
+
     if (mFixAspectRatio && Math.abs(rect.width() - rect.height() * mTargetAspectRatio) > 0.1) {
       if (rect.width() > rect.height() * mTargetAspectRatio) {
         float adj = Math.abs(rect.height() * mTargetAspectRatio - rect.width()) / 2;
@@ -944,20 +952,47 @@ public class CropOverlayView extends View {
       float d0 = rect.top - c0 * rect.left;
       float d1 = rect.top - c1 * rect.right;
 
-      left = Math.max(left, (d0 - b0) / (a0 - c0) < rect.right ? (d0 - b0) / (a0 - c0) : left);
-      left = Math.max(left, (d0 - b1) / (a1 - c0) < rect.right ? (d0 - b1) / (a1 - c0) : left);
-      left = Math.max(left, (d1 - b3) / (a1 - c1) < rect.right ? (d1 - b3) / (a1 - c1) : left);
-      right = Math.min(right, (d1 - b1) / (a1 - c1) > rect.left ? (d1 - b1) / (a1 - c1) : right);
-      right = Math.min(right, (d1 - b2) / (a0 - c1) > rect.left ? (d1 - b2) / (a0 - c1) : right);
-      right = Math.min(right, (d0 - b2) / (a0 - c0) > rect.left ? (d0 - b2) / (a0 - c0) : right);
+      float rightCandidate = right;
+      rightCandidate = Math.min(rightCandidate, (d1 - b1) / (a1 - c1) > rect.left ? (d1 - b1) / (a1 - c1) : rightCandidate);
+      rightCandidate = Math.min(rightCandidate, (d1 - b2) / (a0 - c1) > rect.left ? (d1 - b2) / (a0 - c1) : rightCandidate);
+      rightCandidate = Math.min(rightCandidate, (d0 - b2) / (a0 - c0) > rect.left ? (d0 - b2) / (a0 - c0) : rightCandidate);
+
+      float leftCandidate = left;
+      leftCandidate = Math.max(leftCandidate, (d0 - b0) / (a0 - c0) < rect.right ? (d0 - b0) / (a0 - c0) : leftCandidate);
+      leftCandidate = Math.max(leftCandidate, (d0 - b1) / (a1 - c0) < rect.right ? (d0 - b1) / (a1 - c0) : leftCandidate);
+      leftCandidate = Math.max(leftCandidate, (d1 - b3) / (a1 - c1) < rect.right ? (d1 - b3) / (a1 - c1) : leftCandidate);
+
+      // The left bound is bigger than the previous right bound, so we calculate again the right one using this left bound.
+      if (leftCandidate > rightCandidate) {
+        right = Math.min(right, (d1 - b1) / (a1 - c1) > leftCandidate ? (d1 - b1) / (a1 - c1) : right);
+        right = Math.min(right, (d1 - b2) / (a0 - c1) > leftCandidate ? (d1 - b2) / (a0 - c1) : right);
+        right = Math.min(right, (d0 - b2) / (a0 - c0) > leftCandidate ? (d0 - b2) / (a0 - c0) : right);
+      } else {
+        right = rightCandidate;
+      }
+
+      // The left bound is buggy for some angles, having a value too close to the right bound. We calculate it again in those situations.
+      boolean leftIssue = Math.abs(leftCandidate - rect.left) > Math.abs(leftCandidate - rect.right);
+      if (leftIssue) {
+        left = (d0 - b0) / (a0 - c0) < right ? (d0 - b0) / (a0 - c0) : left;
+        left = (d0 - b1) / (a1 - c0) < right ? (d0 - b1) / (a1 - c0) : left;
+        left = (d1 - b3) / (a1 - c1) < right ? (d1 - b3) / (a1 - c1) : left;
+
+        right = Math.min(right, (d1 - b1) / (a1 - c1) > left ? (d1 - b1) / (a1 - c1) : right);
+        right = Math.min(right, (d1 - b2) / (a0 - c1) > left ? (d1 - b2) / (a0 - c1) : right);
+        right = Math.min(right, (d0 - b2) / (a0 - c0) > left ? (d0 - b2) / (a0 - c0) : right);
+      } else {
+        left = leftCandidate;
+      }
 
       top = Math.max(top, Math.max(a0 * left + b0, a1 * right + b1));
       bottom = Math.min(bottom, Math.min(a1 * left + b3, a0 * right + b2));
 
-      mCalcBounds.left = left;
-      mCalcBounds.top = top;
-      mCalcBounds.right = right;
-      mCalcBounds.bottom = bottom;
+      mCalcBounds.right = Math.max(left, right);
+      mCalcBounds.left = Math.min(left, right);
+      mCalcBounds.bottom = Math.max(top, bottom);
+      mCalcBounds.top = Math.min(top, bottom);
+
       return true;
     }
   }
