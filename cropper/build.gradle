@@ -9,16 +9,16 @@ apply plugin: 'com.android.library'
 // http://www.flexlabs.org/2013/06/using-local-aar-android-library-packages-in-gradle-builds
 apply plugin: 'maven'
 
-def libVersion = "2.6.1"
+def libVersion = "2.6.2"
 def libArtifactId = 'android-image-cropper'
 
 android {
 
-    compileSdkVersion 27
-    buildToolsVersion '26.0.2'
+    compileSdkVersion 28
+    buildToolsVersion '28.0.3'
     defaultConfig {
         minSdkVersion 14
-        targetSdkVersion 27
+        targetSdkVersion 28
         versionCode 1
         versionName libVersion
     }
@@ -57,8 +57,8 @@ configurations {
 dependencies {
     // Maven publishing
     deployerJars 'org.apache.maven.wagon:wagon-http:2.2'
-    api "com.android.support:appcompat-v7:27.+"
-    implementation "com.android.support:exifinterface:27.+"
+    api "com.android.support:appcompat-v7:28.0.0"
+    implementation "com.android.support:exifinterface:28.0.0"
 }
 
 // For Maven Repository submitting
