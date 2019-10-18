@@ -1,17 +1,26 @@
+repositories {
+    mavenCentral()
+    jcenter()
+    maven { url 'http://repo1.maven.org/maven2' }
+}
+
 apply plugin: 'com.android.library'
 // https://docs.gradle.org/current/userguide/publishing_maven.html
 // http://www.flexlabs.org/2013/06/using-local-aar-android-library-packages-in-gradle-builds
-apply plugin: 'maven-publish'
+apply plugin: 'maven'
+
+def libVersion = "2.8.0"
+def libArtifactId = 'android-image-cropper'
 
 android {
 
-    compileSdkVersion rootProject.compileSdkVersion
-    buildToolsVersion rootProject.buildToolsVersion
+    compileSdkVersion 28
+    buildToolsVersion '28.0.3'
     defaultConfig {
         minSdkVersion 14
-        targetSdkVersion rootProject.compileSdkVersion
+        targetSdkVersion 28
         versionCode 1
-        versionName PUBLISH_VERSION
+        versionName libVersion
     }
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_1_7
@@ -20,29 +29,54 @@ android {
     lintOptions {
         abortOnError false
     }
-}
+    buildTypes {
+        debug {
 
-// This configuration is used to publish the library to a local repo while a being forked and modified.
-// It should really be set up so that the version are all in line, and set to be a SNAPSHOT.
-// The version listed here is a temp hack to allow me to keep working.
-android.libraryVariants
-publishing {
-    publications {
-        maven(MavenPublication) {
-
-            groupId PUBLISH_GROUP_ID
-            artifactId PUBLISH_ARTIFACT_ID
-            version PUBLISH_VERSION + '-SNAPSHOT'
-
-            //artifact bundleRelease
         }
+        release {
+
+        }
+        innerTest {
+            //...
+            matchingFallbacks = ['debug', 'release']
+        }
+        /*release {
+            minifyEnabled true
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            zipAlignEnabled true
+            // shrinkResources true
+            multiDexEnabled true
+        }*/
     }
 }
 
-apply from: 'https://raw.githubusercontent.com/blundell/release-android-library/master/android-release-aar.gradle'
+configurations {
+    deployerJars
+}
 
 dependencies {
-    api "androidx.appcompat:appcompat:$androidXLibraryVersion"
-    implementation "androidx.exifinterface:exifinterface:$androidXLibraryVersion"
+    // Maven publishing
+    deployerJars 'org.apache.maven.wagon:wagon-http:2.2'
+    api "com.android.support:appcompat-v7:28.0.0"
+    implementation "com.android.support:exifinterface:28.0.0"
 }
+
+// For Maven Repository submitting
+task uploadRelease(type: Upload) {
+    configuration = configurations.archives
+    repositories.mavenDeployer {
+        configuration = configurations.deployerJars
+        repository(url: releaseUrl) {
+            authentication(userName: repoUsername, password: repoPassword)
+        }
+        pom.version = libVersion
+        pom.artifactId = libArtifactId
+        pom.groupId = "com.viafirma"
+    }
+}
+
+// This is the task to be used for every release.
+task releaseVersion(dependsOn: ['clean', 'build', 'uploadRelease'])
+build.mustRunAfter clean
+uploadRelease.mustRunAfter build
 
