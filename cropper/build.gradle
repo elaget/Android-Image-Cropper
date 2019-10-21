@@ -9,7 +9,7 @@ apply plugin: 'com.android.library'
 // http://www.flexlabs.org/2013/06/using-local-aar-android-library-packages-in-gradle-builds
 apply plugin: 'maven'
 
-def libVersion = "2.8.0"
+def libVersion = "2.8.1"
 def libArtifactId = 'android-image-cropper'
 
 android {
